@@ -33,6 +33,7 @@ void init_decoder() {
 static int prob(unsigned short *cum_prob, int x) {
   return cum_prob[x-1] - cum_prob[x];
 }
+
 /* Estima la pendiente de la distribución de probabilidades de los
    símbolos. Se presupone que existen 256 símbolos en el alfabeto. */
 int estimate_m(unsigned short *cum_prob) {
