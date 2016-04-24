@@ -33,7 +33,7 @@ FILE *fo;
 
 /* La estructura de datos utilizada para manejar los contextos es la siguiente:
    Tenemos una tabla hash, en la que cada entrada es un puntero a un contexto.
-   Cada contexto se compone de 4 componentes: (1) el orden del contexto,
+   Cada contexto se compone de 3 componentes: (1) el orden del contexto,
    (2) un puntero a una lista enlazada que almacena el contexto mediante
    pares s'imbolo/recuento y (3) el array de caracteres que almacenan el
    contexto. Gra'ficamente:
@@ -116,7 +116,7 @@ void free_list(struct SYMBOL_NODE *s) {
 }
 #endif
 
-inline void create_context(int table, int pos, char *context, UCHAR order) {
+void create_context(int table, int pos, char *context, UCHAR order) {
   hash_table[table][pos]=MALLOC(sizeof(CONTEXT_TABLE)+order);
   strncpy((char *)hash_table[table][pos]+sizeof(CONTEXT_TABLE),context,order);
   hash_table[table][pos]->list=NULL;
