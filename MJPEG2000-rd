@@ -1,0 +1,33 @@
+#!/bin/bash
+
+if [ $# -ne 4 ];then
+	echo "Usage: $0 video.yuv width height duration"
+	echo "Example: $0 ~/videos/akiyo_352x288x30x420x300.yuv 352 288 10"
+	exit;
+fi
+
+#set -x
+
+original_video=$1
+width=$2
+height=$3
+duration=$4
+
+decompressed_video=$0.yuv
+compressed_video=$0.mj2
+data_file=$0.dat
+
+slope=50000
+rm -f $data_file
+while [ $slope -gt 40000 ]; do
+    (kdu_v_compress -slope $slope -i $1 -o $compressed_video >&2) 2> /dev/null
+    (kdu_v_expand -i $compressed_video -o 1.vix >&2) 2> /dev/null
+    vix2raw < 1.vix > $decompressed_video
+    compressed_SIZE=`wc -c < $compressed_video`
+    bit_rate_in_KBPS=`echo "$compressed_SIZE*8/$duration/1000" | bc -l`    
+    RMSE=`./snr --file_A=$original_video --file_B=$decompressed_video 2> /dev/null | grep RMSE | cut -d " " -f 3`
+    echo $bit_rate_in_KBPS $RMSE >> $data_file
+    echo slope=$slope KBPS=$bit_rate_in_KBPS RMSE=$RMSE
+    let slope=slope-100
+done
+rm -f $compressed_video $decompressed_video

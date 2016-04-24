@@ -1,0 +1,27 @@
+#!/bin/bash
+
+if [ $# -ne 1 ];then
+	echo "Usage: $0 image.pnm"
+	echo "Example: $0 ~/images/lena.pgm"
+	exit;
+fi
+
+#set -x
+
+original_image=$1
+original_size=`wc -c < $original_image`
+data_file=$0.dat
+
+quality=0
+rm -f $data_file
+while [ $quality -le 100 ]; do
+    cjpeg -quality $quality < $original_image > 1
+    djpeg < 1 > 2
+    compressed_size=`wc -c < 1`
+    BPP=`echo "$compressed_size/$original_size*8" | bc -l`
+    RMSE=`./snr --file_A=$original_image --file_B=2 2> /dev/null | grep RMSE | cut -d " " -f 3`
+    echo $BPP $RMSE >> $data_file
+    echo quality=$quality BPP=$BPP RMSE=$RMSE
+    let quality=quality+1
+done
+rm -f 1 2

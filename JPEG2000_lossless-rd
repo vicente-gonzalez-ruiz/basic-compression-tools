@@ -1,0 +1,27 @@
+#!/bin/bash
+
+if [ $# -ne 1 ];then
+	echo "Usage: $0 image.pgm"
+	echo "Example: $0 ~/images/lena.pgm"
+	exit;
+fi
+
+#set -x
+
+original_image=$1
+original_size=`wc -c < $original_image`
+data_file=$0.dat
+
+slope=65535
+rm -f $data_file
+while [ $slope -gt 1 ]; do
+    (kdu_compress Creversible=yes -slope $slope -i $1 -o 1.jp2 >&2) 2> /dev/null
+    (kdu_expand -i 1.jp2 -o 1.pgm >&2) 2> /dev/null
+    compressed_size=`wc -c < 1.jp2`
+    BPP=`echo "$compressed_size/$original_size*8" | bc -l`
+    RMSE=`./snr --file_A=$original_image --file_B=1.pgm 2> /dev/null | grep RMSE | cut -d " " -f 3`
+    echo $BPP $RMSE >> $data_file
+    echo slope=$slope BPP=$BPP RMSE=$RMSE
+    let slope=slope-100
+done
+rm -f 1.jp2 1.pgm

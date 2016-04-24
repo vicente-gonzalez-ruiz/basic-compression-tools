@@ -1,0 +1,32 @@
+#!/bin/bash
+
+if [ $# -ne 4 ];then
+	echo "Usage: $0 video.yuv width height duration"
+	echo "Example: $0 ~/videos/akiyo_352x288x30x420x300.yuv 352 288 10"
+	exit;
+fi
+
+#set -x
+
+original_video=$1
+width=$2
+height=$3
+duration=$4
+
+decompressed_video=$0.yuv
+compressed_video=$0.avi
+data_file=$0.dat
+
+Qscale=1
+rm -f $data_file
+while [ $Qscale -le 100 ]; do
+    (ffmpeg -y -s ${width}x${height} -i $original_video -vcodec mpeg1video -g 30 -qscale $Qscale $compressed_video >&2) 2> /dev/null
+    compressed_size=`wc -c < $compressed_video`
+    bit_rate_in_KBPS=`echo "$compressed_size*8/$duration/1000" | bc -l`    
+    (ffmpeg -y -i $compressed_video $decompressed_video >&2) 2> /dev/null
+    RMSE=`./snr --file_A=$original_video --file_B=$decompressed_video 2> /dev/null | grep RMSE | cut -d " " -f 3`
+    echo $bit_rate_in_KBPS $RMSE >> $data_file
+    echo Qscale=$Qscale bit-rate=$bit_rate_in_KBPS Kbps RMSE=$RMSE
+    let Qscale=Qscale+1
+done
+rm -f $compressed_video $decompressed_video
