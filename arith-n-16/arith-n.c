@@ -23,13 +23,13 @@
  */
 
 typedef struct {
-    unsigned short int low_count;
-    unsigned short int high_count;
-    unsigned short int scale;
+    unsigned /*short*/ int low_count; // <- short
+    unsigned /*short*/ int high_count; // <- short
+    unsigned /*short*/ int scale; // <- short
 } SYMBOL;
 
 #define MAXIMUM_SCALE   16383  /* Maximum allowed frequency count */
-#define ESCAPE          256    /* The escape symbol               */
+#define ESCAPE          65536  /* The escape symbol               */ // <- 256
 #define DONE            (-1)   /* The output stream empty symbol */
 
 /*
@@ -50,7 +50,7 @@ void remove_symbol_from_stream( BIT_FILE *stream, SYMBOL *s );
 void initialize_arithmetic_encoder( void );
 void encode_symbol( BIT_FILE *stream, SYMBOL *s );
 void flush_arithmetic_encoder( BIT_FILE *stream );
-short int get_current_count( SYMBOL *s );
+/*short*/ int get_current_count( SYMBOL *s ); // short
 
 #else
 
@@ -113,7 +113,8 @@ char *argv[];
     initialize_model();
     initialize_arithmetic_encoder();
     for ( ; ; ) {
-      c = getc( input );
+      //c = getw( input );
+      fread(&c, sizeof(short), 1, input);
         if ( c == EOF )
             c = DONE;
         do {
@@ -165,7 +166,8 @@ char *argv[];
         } while ( c == ESCAPE );
         if ( c == DONE )
 	  break;
-	putc( (char) c, output );
+	//putc( (char) c, output );
+	fwrite(&c, sizeof(short), 1, output);
         update_model( c );
         add_character_to_model( c );
     }
@@ -219,7 +221,7 @@ char *argv[];
  * after flushing the model.
  */
 typedef struct {
-    unsigned char symbol;
+    /*unsigned char*/int symbol; // <- unsigned char
     unsigned char counts;
 } STATS;
 
@@ -289,8 +291,8 @@ int current_order;
  * can be excluded from lower order context total calculations.
  */
 
-short int totals[ 258 ];
-char scoreboard[ 256 ];
+short int totals[ /*258*/65338 ]; // <- 258
+/*char*/int scoreboard[ /*256*/65536 ]; // <- 65536
 
 /*
  * Local procedure declarations for modeling routines.
@@ -348,12 +350,12 @@ void initialize_model()
                                                contexts[ i-1 ] );
     free( (char *) null_table->stats );
     null_table->stats =
-         (STATS *) calloc( sizeof( STATS ), 256 );
+         (STATS *) calloc( sizeof( STATS ), /*256*/65536 ); // <- 256
     if ( null_table->stats == NULL )
         fatal_error( "Failure #3: allocating null table!" );
-    null_table->max_index = 255;
-    for ( i=0 ; i < 256 ; i++ ) {
-        null_table->stats[ i ].symbol = (unsigned char) i;
+    null_table->max_index = /*255*/65535; // <- 255
+    for ( i=0 ; i < /*256*/65536 ; i++ ) { // <- 65536
+        null_table->stats[ i ].symbol = (/*unsigned char*/short) i; // <- unsigned char
         null_table->stats[ i ].counts = 1;
     }
 
@@ -369,7 +371,7 @@ void initialize_model()
     control_table->stats[ 1 ].symbol = -DONE;
     control_table->stats[ 1 ].counts = 1;
 
-    for ( i = 0 ; i < 256 ; i++ )
+    for ( i = 0 ; i < /*256*/ 65536 ; i++ ) // <- 256
         scoreboard[ i ] = 0;
 }
 
@@ -399,7 +401,7 @@ CONTEXT *lesser_context;
     unsigned int new_size;
 
     for ( i = 0 ; i <= table->max_index ; i++ )
-        if ( table->stats[ i ].symbol == (unsigned char) symbol )
+        if ( table->stats[ i ].symbol == (/*unsigned char*/short) symbol ) // <- unsigned char
             break;
     if ( i > table->max_index ) {
         table->max_index++;
@@ -421,7 +423,7 @@ CONTEXT *lesser_context;
             fatal_error( "Failure #6: allocating new table" );
         if ( table->stats == NULL )
             fatal_error( "Failure #7: allocating new table" );
-        table->stats[ i ].symbol = (unsigned char) symbol;
+        table->stats[ i ].symbol = (/*unsigned char*/short) symbol; // <- unsigned char
         table->stats[ i ].counts = 0;
     }
     new_table = (CONTEXT *) calloc( sizeof( CONTEXT ), 1 );
@@ -463,7 +465,7 @@ int symbol;
         }
     }
     current_order = max_order;
-    for ( i = 0 ; i < 256 ; i++ )
+    for ( i = 0 ; i < /*256*/ 65536 ; i++ ) // <- 256
         scoreboard[ i ] = 0;
 }
 
@@ -489,7 +491,7 @@ int symbol;
 {
     int i;
     int index;
-    unsigned char temp;
+    /*unsigned char*/ short temp; // <- unsigned char
     CONTEXT *temp_ptr;
     unsigned int new_size;
 /*
@@ -498,7 +500,7 @@ int symbol;
  */
     index = 0;
     while ( index <= table->max_index &&
-            table->stats[index].symbol != (unsigned char) symbol )
+            table->stats[index].symbol != (/*unsigned char*/short) symbol ) // <- unsigned char
         index++;
     if ( index > table->max_index ) {
         table->max_index++;
@@ -523,7 +525,7 @@ int symbol;
                 realloc( (char *) table->stats, new_size );
         if ( table->stats == NULL )
             fatal_error( "Error #10: reallocating table space!" );
-        table->stats[ index ].symbol = (unsigned char) symbol;
+        table->stats[ index ].symbol = (/*unsigned char*/short) symbol; // <- unsigned char
         table->stats[ index ].counts = 0;
     }
 /*
@@ -723,7 +725,7 @@ int order;
     if ( order == 0 )
         return( table->links[ 0 ].next );
     for ( i = 0 ; i <= table->max_index ; i++ )
-        if ( table->stats[ i ].symbol == (unsigned char) c )
+        if ( table->stats[ i ].symbol == (/*unsigned char*/short) c ) // <- unsigned char
             if ( table->links[ i ].next != NULL )
                 return( table->links[ i ].next );
             else
@@ -801,7 +803,7 @@ void totalize_table( table )
 CONTEXT *table;
 {
     int i;
-    unsigned char max;
+    /*unsigned char*/short max; // <- unsigned char
 
     for ( ; ; ) {
         max = 0;
@@ -850,9 +852,9 @@ CONTEXT *table;
  * by declaring them as short ints, they will actually be 16 bits
  * on most 80X86 and 680X0 machines, as well as VAXen.
  */
-static unsigned short int code;  /* The present input code value       */
-static unsigned short int low;   /* Start of the current code range    */
-static unsigned short int high;  /* End of the current code range      */
+static unsigned /*short*/ int code;  /* The present input code value       */ // <- short
+static unsigned /*short*/ int low;   /* Start of the current code range    */ // <- short
+static unsigned /*short*/ int high;  /* End of the current code range      */ // <- short
 long underflow_bits;             /* Number of underflow bits pending   */
 
 /*
@@ -864,7 +866,7 @@ long underflow_bits;             /* Number of underflow bits pending   */
 void initialize_arithmetic_encoder()
 {
     low = 0;
-    high = 0xffff;
+    high = 0xffffffff; // <- 0xffff 
     underflow_bits = 0;
 }
 
@@ -876,11 +878,11 @@ void initialize_arithmetic_encoder()
 void flush_arithmetic_encoder( stream )
 BIT_FILE *stream;
 {
-    OutputBit( stream, low & 0x4000 );
+    OutputBit( stream, low & 0x40000000 ); // <- 0x4000
     underflow_bits++;
     while ( underflow_bits-- > 0 )
-        OutputBit( stream, ~low & 0x4000 );
-    OutputBits( stream, 0L, 16 );
+        OutputBit( stream, ~low & 0x4000000 ); // <- 0x4000
+    OutputBits( stream, 0L, /*16*/32 ); // <- 16
 }
 
 /*
@@ -902,9 +904,9 @@ SYMBOL *s;
  * These three lines rescale high and low for the new symbol.
  */
     range = (long) ( high-low ) + 1;
-    high = low + (unsigned short int)
+    high = low + (unsigned /*short*/ int) // <- short
                  (( range * s->high_count ) / s->scale - 1 );
-    low = low + (unsigned short int)
+    low = low + (unsigned /*short*/ int) // <- short
                  (( range * s->low_count ) / s->scale );
 /*
  * This loop turns out new bits until high and low are far enough
@@ -915,10 +917,10 @@ SYMBOL *s;
  * If this test passes, it means that the MSDigits match, and can
  * be sent to the output stream.
  */
-        if ( ( high & 0x8000 ) == ( low & 0x8000 ) ) {
-            OutputBit( stream, high & 0x8000 );
+        if ( ( high & 0x80000000 ) == ( low & 0x80000000 ) ) { // <- 0x8000
+            OutputBit( stream, high & 0x80000000 ); // <- 0x8000
             while ( underflow_bits > 0 ) {
-                OutputBit( stream, ~high & 0x8000 );
+                OutputBit( stream, ~high & 0x80000000 ); // <- 0x8000
                 underflow_bits--;
             }
         }
@@ -926,10 +928,10 @@ SYMBOL *s;
  * If this test passes, the numbers are in danger of underflow, because
  * the MSDigits don't match, and the 2nd digits are just one apart.
  */
-        else if ( ( low & 0x4000 ) && !( high & 0x4000 )) {
+        else if ( ( low & 0x40000000 ) && !( high & 0x40000000 )) { // <- 0x4000
             underflow_bits += 1;
-            low &= 0x3fff;
-            high |= 0x4000;
+            low &= 0x3fffffff; // <- 0x3fff
+            high |= 0x40000000; // <- 0x4000
         } else
             return ;
         low <<= 1;
@@ -946,14 +948,14 @@ SYMBOL *s;
  *
  *  code = count / s->scale
  */
-short int get_current_count( s )
+/*short*/ int get_current_count( s ) // <- short
 SYMBOL *s;
 {
     long range;
-    short int count;
+    /*short*/ int count; // <- short
 
     range = (long) ( high - low ) + 1;
-    count = (short int)
+    count = (/*short*/ int) // <- short
             ((((long) ( code - low ) + 1 ) * s->scale-1 ) / range );
     return( count );
 }
@@ -970,12 +972,12 @@ BIT_FILE *stream;
     int i;
 
     code = 0;
-    for ( i = 0 ; i < 16 ; i++ ) {
+    for ( i = 0 ; i < /*16*/32 ; i++ ) { // <- 16
         code <<= 1;
         code += InputBit( stream );
     }
     low = 0;
-    high = 0xffff;
+    high = 0xffffffff; // <- 0xffff
 }
 
 /*
@@ -994,9 +996,9 @@ SYMBOL *s;
  * First, the range is expanded to account for the symbol removal.
  */
     range = (long)( high - low ) + 1;
-    high = low + (unsigned short int)
+    high = low + (unsigned /*short*/ int) // <- short
                  (( range * s->high_count ) / s->scale - 1 );
-    low = low + (unsigned short int)
+    low = low + (unsigned /*short*/ int) // <- short
                  (( range * s->low_count ) / s->scale );
 /*
  * Next, any possible bits are shipped out.
@@ -1005,15 +1007,15 @@ SYMBOL *s;
 /*
  * If the MSDigits match, the bits will be shifted out.
  */
-        if ( ( high & 0x8000 ) == ( low & 0x8000 ) ) {
+        if ( ( high & 0x80000000 ) == ( low & 0x80000000 ) ) { // <- 0x8000
         }
 /*
  * Else, if underflow is threatening, shift out the 2nd MSDigit.
  */
-        else if ((low & 0x4000) == 0x4000  && (high & 0x4000) == 0 ) {
-            code ^= 0x4000;
-            low   &= 0x3fff;
-            high  |= 0x4000;
+        else if ((low & 0x40000000) == 0x40000000 && (high & 0x40000000) == 0 ) { // <- 0x4000
+            code ^= 0x40000000; // <- 0x4000
+            low   &= 0x3fffffff; // <- 0x3fff
+            high  |= 0x40000000; // <- 0x4000
         } else
  /*
  * Otherwise, nothing can be shifted out, so I return.
