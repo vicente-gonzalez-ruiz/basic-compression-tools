@@ -108,13 +108,17 @@ char *argv[];
     int flush = 0;
     long int text_count = 0;
     int count=0;
-
+    long input_size = 0;
+    fseek(input, 0, SEEK_END);
+    input_size = ftell(input);
+    fseek(input, 0, SEEK_SET);
     initialize_options( argc, argv );
     initialize_model();
     initialize_arithmetic_encoder();
     for ( ; ; ) {
       //c = getw( input );
       fread(&c, sizeof(short), 1, input);
+      printf("%f\r", input_size/(count*2));
         if ( c == EOF )
             c = DONE;
         do {
