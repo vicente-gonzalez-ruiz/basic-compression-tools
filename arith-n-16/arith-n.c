@@ -118,7 +118,6 @@ char *argv[];
     for ( ; ; ) {
       //c = getw( input );
       fread(&c, sizeof(short), 1, input);
-      printf("%f\r", input_size/(count*2));
         if ( c == EOF )
             c = DONE;
         do {
@@ -130,6 +129,7 @@ char *argv[];
 	    break;
         update_model( c );
         add_character_to_model( c );
+      printf("%f\r", 1.0*input_size/(count*2));
     }
     fprintf(stderr,"count=%d\n",count);
     flush_arithmetic_encoder( output );

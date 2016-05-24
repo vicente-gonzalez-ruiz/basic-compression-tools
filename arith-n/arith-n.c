@@ -11,6 +11,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
+#include <unistd.h>
 #include "errhand.h"
 #include "bitio.h"
 
@@ -77,6 +79,18 @@ char *CompressionName = "Adaptive order n model with arithmetic coding";
 char *Usage           = "in-file out-file [ -o order ]\n\n";
 int max_order         = 3;
 
+int count=0;
+long input_size;
+
+void *pacifier(void *data)
+{
+  int interval = *(int *)data;
+  for (;;) {
+    printf("%3.0f\r,",100.0*input_size/count);
+    usleep(interval);
+  }
+}
+
 /*
  *
  * The main procedure is similar to the main found in ARITH1E.C. It has to
@@ -107,7 +121,14 @@ char *argv[];
     int escaped;
     int flush = 0;
     long int text_count = 0;
-    int count=0;
+
+    pthread_t thread;
+    int interval = 1000000;
+    pthread_create(&thread, NULL, pacifier, &interval);
+
+    fseek(input, 0, SEEK_END);
+    input_size = ftell(input);
+    fseek(input, 0, SEEK_SET);
 
     initialize_options( argc, argv );
     initialize_model();
@@ -125,8 +146,8 @@ char *argv[];
 	    break;
         update_model( c );
         add_character_to_model( c );
-    }
-    fprintf(stderr,"count=%d\n",count);
+            }
+    //fprintf(stderr,"count=%d\n",count);
     flush_arithmetic_encoder( output );
 }
 
@@ -151,8 +172,16 @@ char *argv[];
 {
     SYMBOL s;
     int c;
-    int count;
+    //int count;
 
+    pthread_t thread;
+    int interval = 1000000;
+    pthread_create(&thread, NULL, pacifier, &interval);
+
+    fseek(input->file, 0, SEEK_END);
+    input_size = ftell(input->file);
+    fseek(input->file, 0, SEEK_SET);
+    
     initialize_options( argc, argv );
     initialize_model();
     initialize_arithmetic_decoder( input );
