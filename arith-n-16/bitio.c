@@ -23,7 +23,7 @@ char *name;
 			     bit_file->file = fopen( name, "wb" );
     bit_file->rack = 0;
     bit_file->mask = 0x80;
-    bit_file->pacifier_counter = 0;
+    //bit_file->pacifier_counter = 0;
     return( bit_file );
 }
 
@@ -38,7 +38,7 @@ char *name;
 			     bit_file->file = fopen( name, "rb" );
     bit_file->rack = 0;
     bit_file->mask = 0x80;
-    bit_file->pacifier_counter = 0;
+    //bit_file->pacifier_counter = 0;
     return( bit_file );
 }
 
@@ -67,14 +67,12 @@ int bit;
         bit_file->rack |= bit_file->mask;
     bit_file->mask >>= 1;
     if ( bit_file->mask == 0 ) {
-        fprintf(stderr, "%d\n", 0 ); // <-
-        fflush(stderr); // <-
-        //bit_file->rack = 0; // <-
-	if ( putc( bit_file->rack, bit_file->file ) != bit_file->rack )
+      printf("bit_file=%p", bit_file);
+      if ( putc( bit_file->rack, bit_file->file ) != bit_file->rack )
 	    fatal_error( "Fatal error in OutputBit!\n" );
-	else
+	/*else
         if ( ( bit_file->pacifier_counter++ & PACIFIER_COUNT ) == 0 )
-		putc( '.', stderr );
+		putc( '.', stderr );*/
 	bit_file->rack = 0;
 	bit_file->mask = 0x80;
     }
@@ -95,8 +93,8 @@ int count;
         if ( bit_file->mask == 0 ) {
 	    if ( putc( bit_file->rack, bit_file->file ) != bit_file->rack )
 		fatal_error( "Fatal error in OutputBit!\n" );
-        else if ( ( bit_file->pacifier_counter++ & PACIFIER_COUNT ) == 0 )
-		putc( '.', stderr );
+        /*else if ( ( bit_file->pacifier_counter++ & PACIFIER_COUNT ) == 0 )
+		putc( '.', stderr );*/
 	    bit_file->rack = 0;
             bit_file->mask = 0x80;
         }
@@ -119,8 +117,8 @@ BIT_FILE *bit_file;
         bit_file->rack = getc( bit_file->file );
         if ( bit_file->rack == EOF )
             fatal_error( "Fatal error in InputBit!\n" );
-    if ( ( bit_file->pacifier_counter++ & PACIFIER_COUNT ) == 0 )
-	    putc( '.', stderr );
+    /*if ( ( bit_file->pacifier_counter++ & PACIFIER_COUNT ) == 0 )
+	    putc( '.', stderr ); */
     }
     value = bit_file->rack & bit_file->mask;
     bit_file->mask >>= 1;
@@ -143,8 +141,8 @@ int bit_count;
 	    bit_file->rack = getc( bit_file->file );
 	    if ( bit_file->rack == EOF )
 		fatal_error( "Fatal error in InputBit!\n" );
-        if ( ( bit_file->pacifier_counter++ & PACIFIER_COUNT ) == 0 )
-		putc( '.', stderr );
+        /*if ( ( bit_file->pacifier_counter++ & PACIFIER_COUNT ) == 0 )
+		putc( '.', stderr ); */
 	}
 	if ( bit_file->rack & bit_file->mask )
             return_value |= mask;

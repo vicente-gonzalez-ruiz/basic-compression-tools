@@ -11,6 +11,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
+#include <unistd.h>
+#include <limits.h>
 #include "errhand.h"
 #include "bitio.h"
 
@@ -28,7 +31,7 @@ typedef struct {
     unsigned /*short*/ int scale; // <- short
 } SYMBOL;
 
-#define MAXIMUM_SCALE   16383  /* Maximum allowed frequency count */
+#define MAXIMUM_SCALE   ((INT_MAX/4)-1) /*16383*/  /* Maximum allowed frequency count */ // <- 16383
 #define ESCAPE          65536  /* The escape symbol               */ // <- 256
 #define DONE            (-1)   /* The output stream empty symbol */
 
@@ -50,7 +53,7 @@ void remove_symbol_from_stream( BIT_FILE *stream, SYMBOL *s );
 void initialize_arithmetic_encoder( void );
 void encode_symbol( BIT_FILE *stream, SYMBOL *s );
 void flush_arithmetic_encoder( BIT_FILE *stream );
-/*short*/ int get_current_count( SYMBOL *s ); // short
+/*short*/ int get_current_count( SYMBOL *s ); // <- short
 
 #else
 
@@ -76,6 +79,18 @@ short int get_current_count();
 char *CompressionName = "Adaptive order n model with arithmetic coding";
 char *Usage           = "in-file out-file [ -o order ]\n\n";
 int max_order         = 3;
+
+int count=0;
+long input_size;
+
+void *pacifier(void *data)
+{
+  int interval = *(int *)data;
+  for (;;) {
+    printf("%d/%d %f %\r",input_size, count, 100.0*count/input_size);
+    usleep(interval);
+  }
+}
 
 /*
  *
@@ -107,29 +122,36 @@ char *argv[];
     int escaped;
     int flush = 0;
     long int text_count = 0;
-    int count=0;
-    long input_size = 0;
+
+    pthread_t thread;
+    int interval = 1000000;
+    pthread_create(&thread, NULL, pacifier, &interval);
+
     fseek(input, 0, SEEK_END);
     input_size = ftell(input);
     fseek(input, 0, SEEK_SET);
+
     initialize_options( argc, argv );
     initialize_model();
     initialize_arithmetic_encoder();
     for ( ; ; ) {
       //c = getw( input );
       fread(&c, sizeof(short), 1, input);
-        if ( c == EOF )
-            c = DONE;
-        do {
-            escaped = convert_int_to_symbol( c, &s );
-            encode_symbol( output, &s );
-            count++;
-        } while ( escaped );
-        if ( c == DONE )
-	    break;
-        update_model( c );
-        add_character_to_model( c );
-      printf("%f\r", 1.0*input_size/(count*2));
+      c += 32768;
+      count+=2;
+      if(feof(input)) c = DONE;
+      /*if ( c == EOF )
+	c = DONE;*/
+      do {
+	escaped = convert_int_to_symbol( c, &s );
+	printf("c=%d low=%d high=%d scale=%d\n",c, s.low_count, s.high_count, s.scale);
+	//if (s.scale==0) s.scale=1;
+	encode_symbol( output, &s );
+      } while ( escaped );
+      if ( c == DONE )
+	break;
+      update_model( c );
+      add_character_to_model( c );
     }
     fprintf(stderr,"count=%d\n",count);
     flush_arithmetic_encoder( output );
@@ -156,7 +178,15 @@ char *argv[];
 {
     SYMBOL s;
     int c;
-    int count;
+    //int count;
+
+    pthread_t thread;
+    int interval = 1000000;
+    pthread_create(&thread, NULL, pacifier, &interval);
+
+    fseek(input->file, 0, SEEK_END);
+    input_size = ftell(input->file);
+    fseek(input->file, 0, SEEK_SET);
 
     initialize_options( argc, argv );
     initialize_model();
@@ -225,7 +255,7 @@ char *argv[];
  * after flushing the model.
  */
 typedef struct {
-    /*unsigned char*/int symbol; // <- unsigned char
+    unsigned /*char*/short symbol; // <- char
     unsigned char counts;
 } STATS;
 
@@ -295,8 +325,8 @@ int current_order;
  * can be excluded from lower order context total calculations.
  */
 
-short int totals[ /*258*/65338 ]; // <- 258
-/*char*/int scoreboard[ /*256*/65536 ]; // <- 65536
+/*short*/ int totals[ /*258*/65538 ]; // <- short, 258
+/*char*/short scoreboard[ /*256*/65536 ]; // <- 256
 
 /*
  * Local procedure declarations for modeling routines.
@@ -358,7 +388,7 @@ void initialize_model()
     if ( null_table->stats == NULL )
         fatal_error( "Failure #3: allocating null table!" );
     null_table->max_index = /*255*/65535; // <- 255
-    for ( i=0 ; i < /*256*/65536 ; i++ ) { // <- 65536
+    for ( i=0 ; i < /*256*/65536 ; i++ ) { // <- 256
         null_table->stats[ i ].symbol = (/*unsigned char*/short) i; // <- unsigned char
         null_table->stats[ i ].counts = 1;
     }
@@ -405,7 +435,7 @@ CONTEXT *lesser_context;
     unsigned int new_size;
 
     for ( i = 0 ; i <= table->max_index ; i++ )
-        if ( table->stats[ i ].symbol == (/*unsigned char*/short) symbol ) // <- unsigned char
+        if ( table->stats[ i ].symbol == (unsigned /*char*/short) symbol ) // <- char
             break;
     if ( i > table->max_index ) {
         table->max_index++;
@@ -427,7 +457,7 @@ CONTEXT *lesser_context;
             fatal_error( "Failure #6: allocating new table" );
         if ( table->stats == NULL )
             fatal_error( "Failure #7: allocating new table" );
-        table->stats[ i ].symbol = (/*unsigned char*/short) symbol; // <- unsigned char
+        table->stats[ i ].symbol = (unsigned /*char*/short) symbol; // <- unsigned char
         table->stats[ i ].counts = 0;
     }
     new_table = (CONTEXT *) calloc( sizeof( CONTEXT ), 1 );
@@ -495,7 +525,7 @@ int symbol;
 {
     int i;
     int index;
-    /*unsigned char*/ short temp; // <- unsigned char
+    unsigned /*char*/ short temp; // <- char
     CONTEXT *temp_ptr;
     unsigned int new_size;
 /*
@@ -504,7 +534,7 @@ int symbol;
  */
     index = 0;
     while ( index <= table->max_index &&
-            table->stats[index].symbol != (/*unsigned char*/short) symbol ) // <- unsigned char
+            table->stats[index].symbol != (unsigned /*char*/short) symbol ) // <- char
         index++;
     if ( index > table->max_index ) {
         table->max_index++;
@@ -529,7 +559,7 @@ int symbol;
                 realloc( (char *) table->stats, new_size );
         if ( table->stats == NULL )
             fatal_error( "Error #10: reallocating table space!" );
-        table->stats[ index ].symbol = (/*unsigned char*/short) symbol; // <- unsigned char
+        table->stats[ index ].symbol = (unsigned /*char*/short) symbol; // <- char
         table->stats[ index ].counts = 0;
     }
 /*
@@ -729,7 +759,7 @@ int order;
     if ( order == 0 )
         return( table->links[ 0 ].next );
     for ( i = 0 ; i <= table->max_index ; i++ )
-        if ( table->stats[ i ].symbol == (/*unsigned char*/short) c ) // <- unsigned char
+        if ( table->stats[ i ].symbol == (unsigned /*char*/short) c ) // <- char
             if ( table->links[ i ].next != NULL )
                 return( table->links[ i ].next );
             else
@@ -807,7 +837,7 @@ void totalize_table( table )
 CONTEXT *table;
 {
     int i;
-    /*unsigned char*/short max; // <- unsigned char
+    unsigned /*char*/short max; // <- char
 
     for ( ; ; ) {
         max = 0;
@@ -828,12 +858,12 @@ CONTEXT *table;
         if ( max == 0 )
             totals[ 0 ] = 1;
         else {
-            totals[ 0 ] = (short int) ( 256 - table->max_index );
-            totals[ 0 ] *= table->max_index;
-            totals[ 0 ] /= 256;
-            totals[ 0 ] /= max;
-            totals[ 0 ]++;
-            totals[ 0 ] += totals[ 1 ];
+	  totals[ 0 ] = (/*short*/ int) ( /*256*/65536 - table->max_index ); // <- short, 256
+	  totals[ 0 ] *= table->max_index;
+	  totals[ 0 ] /= /*256*/65536; // <- 256
+	  totals[ 0 ] /= max;
+	  totals[ 0 ]++;
+	  totals[ 0 ] += totals[ 1 ];
         }
         if ( totals[ 0 ] < MAXIMUM_SCALE )
             break;
@@ -885,7 +915,7 @@ BIT_FILE *stream;
     OutputBit( stream, low & 0x40000000 ); // <- 0x4000
     underflow_bits++;
     while ( underflow_bits-- > 0 )
-        OutputBit( stream, ~low & 0x4000000 ); // <- 0x4000
+        OutputBit( stream, ~low & 0x40000000 ); // <- 0x4000
     OutputBits( stream, 0L, /*16*/32 ); // <- 16
 }
 
@@ -1018,8 +1048,8 @@ SYMBOL *s;
  */
         else if ((low & 0x40000000) == 0x40000000 && (high & 0x40000000) == 0 ) { // <- 0x4000
             code ^= 0x40000000; // <- 0x4000
-            low   &= 0x3fffffff; // <- 0x3fff
-            high  |= 0x40000000; // <- 0x4000
+            low  &= 0x3fffffff; // <- 0x3fff
+            high |= 0x40000000; // <- 0x4000
         } else
  /*
  * Otherwise, nothing can be shifted out, so I return.

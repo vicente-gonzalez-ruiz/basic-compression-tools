@@ -135,12 +135,13 @@ char *argv[];
     initialize_arithmetic_encoder();
     for ( ; ; ) {
       c = getc( input );
+      count++;
         if ( c == EOF )
             c = DONE;
         do {
             escaped = convert_int_to_symbol( c, &s );
             encode_symbol( output, &s );
-            count++;
+            //count++;
         } while ( escaped );
         if ( c == DONE )
 	    break;
