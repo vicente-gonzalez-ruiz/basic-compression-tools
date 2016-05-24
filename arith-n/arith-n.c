@@ -86,7 +86,7 @@ void *pacifier(void *data)
 {
   int interval = *(int *)data;
   for (;;) {
-    printf("%f\r,",100.0*input_size/count);
+    printf("%d %d %f\r",input_size, count, 100.0*input_size/count);
     usleep(interval);
   }
 }
